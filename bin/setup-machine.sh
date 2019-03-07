@@ -5,24 +5,6 @@
 
 set -xueE -o pipefail
 
-# These are obtained by running 'dconf dump /org/gnome/gedit/preferences/'.
-readonly GEDIT_PREFERENCES="[editor]
-highlight-current-line=true
-display-right-margin=true
-display-overview-map=false
-bracket-matching=true
-tabs-size=uint32 2
-display-line-numbers=true
-insert-spaces=true
-right-margin-position=uint32 100
-background-pattern='none'
-wrap-last-split-mode='word'
-auto-indent=true
-
-[ui]
-show-tabs-mode='auto'
-side-panel-visible=true"
-
 # '1' if running under Windows Subsystem for Linux, '0' otherwise.
 readonly WSL=$(grep -q Microsoft /proc/version && echo 1 || echo 0)
 
@@ -34,11 +16,9 @@ function install_packages() {
     clang-format
     command-not-found
     curl
-    dconf-cli
     dos2unix
     g++-8
     gawk
-    gedit
     git
     htop
     jq
@@ -59,7 +39,7 @@ function install_packages() {
   else
     PACKAGES+=(gnome-tweak-tool iotop unoconv)
   fi
-
+  
   sudo apt update
   sudo apt upgrade -y
   sudo apt install -y "${PACKAGES[@]}"
@@ -95,23 +75,6 @@ function install_vscode() {
   curl -L 'https://go.microsoft.com/fwlink/?LinkID=760868' >"$VSCODE_DEB"
   sudo apt install "$VSCODE_DEB"
   rm "$VSCODE_DEB"
-}
-
-# Avoid clock snafu when dual-booting Windows and Linux.
-# See https://www.howtogeek.com/323390/how-to-fix-windows-and-linux-showing-different-times-when-dual-booting/.
-function fix_clock() {
-  test $WSL -eq 0 || return 0
-  timedatectl set-local-rtc 1 --adjust-system-clock
-}
-
-# Set the shared memory size limit to 64GB (the default is 32GB).
-function fix_shm() {
-  test $WSL -eq 0 || return 0
-  ! grep -qF '# My custom crap' /etc/fstab || return 0
-  sudo bash -c '
-    echo "# My custom crap" >>/etc/fstab
-    echo "tmpfs /dev/shm tmpfs defaults,rw,nosuid,nodev,size=64g 0 0" >>/etc/fstab
-  '
 }
 
 function win_install_fonts() {
@@ -170,7 +133,6 @@ function set_preferences() {
     # No X server at $DISPLAY.
     return
   fi
-  with_dbus dconf load '/org/gnome/gedit/preferences/' <<<"$GEDIT_PREFERENCES"
 }
 
 if [[ "$(id -u)" == 0 ]]; then
@@ -194,8 +156,6 @@ install_ohmyzsh_extension plugin \
 install_ohmyzsh_extension theme \
   powerlevel10k git@github.com:romkatv/powerlevel10k.git
 
-fix_clock
-fix_shm
 fix_dbus
 fix_gcc
 
