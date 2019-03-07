@@ -137,7 +137,6 @@ zle_highlight=(default:bold)  # bold prompt
 
 alias clang-format='clang-format -style=file'
 alias ls='ls --group-directories-first --color=auto'
-alias gedit='gedit &>/dev/null'                       # suppress useless warnings
 alias d2u='dos2unix'
 alias u2d='unix2dos'
 
@@ -159,23 +158,19 @@ if (( WSL )); then
 fi
 
 # Automatically run `ls` after every `cd`.
-function _chpwd_hook_ls() ls
-autoload -Uz add-zsh-hook
-add-zsh-hook chpwd _chpwd_hook_ls
+# function _chpwd_hook_ls() ls
+# autoload -Uz add-zsh-hook
+# add-zsh-hook chpwd _chpwd_hook_ls
 
 function custom_rprompt() {}  # redefine this to show stuff in RPROMPT
 
 bindkey '^H'      backward-kill-word                  # ctrl+bs   delete previous word
 bindkey '^[[3;5~' kill-word                           # ctrl+del  delete next word
 bindkey '^J'      backward-kill-line                  # ctrl+j    delete everything before cursor
-bindkey '^Z'      undo                                # ctrl+z    undo
-bindkey '^Y'      redo                                # ctrl+y    redo
 bindkey '^[OA'    up-line-or-beginning-search-local   # ctrl+up   previous command in local history
 bindkey '^[OB'    down-line-or-beginning-search-local # ctrl+down next command in local history
 bindkey '^[[1;5A' up-line-or-beginning-search         # ctrl+up   previous command in global history
 bindkey '^[[1;5B' down-line-or-beginning-search       # ctrl+down next command in global history
-
-stty susp '^B'  # ctrl+b instead of ctrl+z to suspend (ctrl+z is undo)
 
 HISTFILE=$HOME/.zsh_history
 HISTSIZE=1000000000
@@ -192,12 +187,6 @@ setopt MULTIOS               # allow multiple redirections for the same fd
 
 unsetopt BG_NICE             # don't nice background jobs; not useful and doesn't work on WSL
 
-if (( WSL )); then
-  # Place temporary files created by `=(command)` in the Windows temp directory.
-  # This makes it easy to pass file arguments to native Windows apps.
-  TMPPREFIX=$WIN_TMPDIR/zsh
-fi
-
 # This affects every invocation of `less`.
 #
 #   -R   color
@@ -206,7 +195,3 @@ fi
 #   -M   show more info at the bottom prompt line
 #   -x4  tabs are 4 instead of 8
 export LESS=-RFXMx4
-
-if [[ -f $HOME/mkport/mkport-env.zsh ]]; then
-  source $HOME/mkport/mkport-env.zsh
-fi
