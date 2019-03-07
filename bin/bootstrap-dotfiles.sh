@@ -5,7 +5,7 @@
 
 set -xueEo pipefail
 
-readonly GITHUB_USER=romkatv
+readonly GITHUB_USER=alkis
 
 function get_repo_uri() {
   echo "git@github.com:$GITHUB_USER/$1.git"
