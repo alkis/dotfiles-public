@@ -11,7 +11,7 @@ ZSH_THEME=powerlevel10k/powerlevel10k
 
 ZLE_REMOVE_SUFFIX_CHARS=      # don't eat the space when typing '|' after a tab completion
 ZSH_DISABLE_COMPFIX=true      # don't complain about permissions when completing
-ENABLE_CORRECTION=true        # zsh: correct 'sl' to 'ls' [nyae]?
+# ENABLE_CORRECTION=true      # zsh: correct 'sl' to 'ls' [nyae]?
 COMPLETION_WAITING_DOTS=true  # show "..." while completing
 
 plugins=(
@@ -25,7 +25,7 @@ plugins=(
 )
 
 source $HOME/bin/local-history.zsh
-source $HOME/.powerlevel9krc
+source $HOME/.purepower
 source $ZSH/oh-my-zsh.sh
 
 ZSH_AUTOSUGGEST_CLEAR_WIDGETS+=(
@@ -33,7 +33,7 @@ ZSH_AUTOSUGGEST_CLEAR_WIDGETS+=(
   down-line-or-beginning-search-local
 )
 
-zle_highlight=(default:bold)  # bold prompt
+# zle_highlight=(default:bold)  # bold prompt
 
 alias clang-format='clang-format -style=file'
 alias ls='ls --group-directories-first --color=auto'
