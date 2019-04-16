@@ -136,6 +136,13 @@ function set_preferences() {
   fi
 }
 
+function disable_fucking_magic() {
+  # Disable the retarded shit that Oh My Zsh peddles. It makes paste into terminal painfully slow
+  # and fucks up useful plugins like zsh-autosuggestions.
+  mkdir -p "$HOME"/.oh-my-zsh/custom/lib
+  touch "$HOME"/.oh-my-zsh/custom/lib/misc.zsh
+}
+
 if [[ "$(id -u)" == 0 ]]; then
   echo "setup-machine.sh: please run as non-root" >&2
   exit 1
@@ -157,6 +164,10 @@ install_ohmyzsh_extension plugin \
 install_ohmyzsh_extension theme \
   powerlevel10k git@github.com:romkatv/powerlevel10k.git
 
+disable_fucking_magic
+
+fix_clock
+fix_shm
 fix_dbus
 fix_gcc
 

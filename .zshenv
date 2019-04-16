@@ -1,5 +1,5 @@
 export WSL=$(grep -q Microsoft /proc/version && echo 1 || echo 0)
-export PATH=$HOME/bin:$PATH
+export PATH=$HOME/bin:${PATH#$HOME/bin:}
 export EDITOR=nano
 
 if [[ $WSL == 1 ]]; then

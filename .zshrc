@@ -2,18 +2,6 @@ export ZSH=$HOME/.oh-my-zsh
 
 ZSH_THEME=powerlevel10k/powerlevel10k
 
-# GITSTATUS_ENABLE_LOGGING=1
-# POWERLEVEL9K_DISABLE_GITSTATUS=true
-# GITSTATUS_DAEMON=~/.oh-my-zsh/custom/plugins/gitstatus/gitstatusd
-# POWERLEVEL9K_GITSTATUS_DIR=~/.oh-my-zsh/custom/plugins/gitstatus
-# POWERLEVEL9K_VCS_MAX_SYNC_LATENCY_SECONDS=1
-# (( WSL )) && POWERLEVEL9K_VCS_MAX_INDEX_SIZE_DIRTY=4096
-
-ZLE_REMOVE_SUFFIX_CHARS=      # don't eat the space when typing '|' after a tab completion
-ZSH_DISABLE_COMPFIX=true      # don't complain about permissions when completing
-# ENABLE_CORRECTION=true      # zsh: correct 'sl' to 'ls' [nyae]?
-COMPLETION_WAITING_DOTS=true  # show "..." while completing
-
 plugins=(
   zsh-prompt-benchmark     # function zsh_prompt_benchmark to benchmark prompt
   zsh-syntax-highlighting  # syntax highlighting for prompt
@@ -24,14 +12,65 @@ plugins=(
   z                        # `z` command to cd into commonly used directories
 )
 
-source $HOME/bin/local-history.zsh
+GITSTATUS_SEND_SIGWINCH=1
+GITSTATUS_ENABLE_LOGGING=1
+# POWERLEVEL9K_DISABLE_GITSTATUS=true
+# GITSTATUS_DAEMON=~/.oh-my-zsh/custom/plugins/gitstatus/gitstatusd
+# POWERLEVEL9K_GITSTATUS_DIR=~/.oh-my-zsh/custom/plugins/gitstatus
+# POWERLEVEL9K_VCS_MAX_SYNC_LATENCY_SECONDS=1
+# (( WSL )) && POWERLEVEL9K_VCS_MAX_INDEX_SIZE_DIRTY=4096
+
+ZLE_REMOVE_SUFFIX_CHARS=      # don't eat the space when typing '|' after a tab completion
+ZSH_DISABLE_COMPFIX=true      # don't complain about permissions when completing
+# ENABLE_CORRECTION=true      # zsh: correct 'sl' to 'ls' [nyae]?
+COMPLETION_WAITING_DOTS=true  # show "..." while completing
+DISABLE_AUTO_UPDATE=true      # disable check for Oh My Zsh updates on startup
+
+ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE='fg=244'
+
+ZSH_AUTOSUGGEST_EXECUTE_WIDGETS=()
+
+ZSH_AUTOSUGGEST_ACCEPT_WIDGETS=(
+  end-of-line
+  vi-end-of-line
+  vi-add-eol
+  # forward-char     # my removal
+  # vi-forward-char  # my removal
+)
+
+ZSH_AUTOSUGGEST_CLEAR_WIDGETS=(
+	history-search-forward
+	history-search-backward
+	history-beginning-search-forward
+	history-beginning-search-backward
+	history-substring-search-up
+	history-substring-search-down
+	up-line-or-beginning-search
+	down-line-or-beginning-search
+	up-line-or-history
+	down-line-or-history
+	accept-line
+  up-line-or-beginning-search-local    # my addition
+  down-line-or-beginning-search-local  # my addition
+  my-expand-alias                      # my addition
+)
+
+ZSH_AUTOSUGGEST_PARTIAL_ACCEPT_WIDGETS=(
+  forward-word
+	emacs-forward-word
+	vi-forward-word
+	vi-forward-word-end
+	vi-forward-blank-word
+	vi-forward-blank-word-end
+	vi-find-next-char
+	vi-find-next-char-skip
+  forward-char               # my addition
+  vi-forward-char            # my addition
+)
+
+source $HOME/dotfiles/local-history.zsh
 source $HOME/.purepower
 source $ZSH/oh-my-zsh.sh
-
-ZSH_AUTOSUGGEST_CLEAR_WIDGETS+=(
-  up-line-or-beginning-search-local
-  down-line-or-beginning-search-local
-)
 
 # zle_highlight=(default:bold)  # bold prompt
 
@@ -57,20 +96,39 @@ if (( WSL )); then
   }
 fi
 
+# zsh-autosuggests wraps all widgets on every prompt, which takes ~12 ms.
+# We turn it off after making sure _zsh_autosuggest_start has run at least once.
+autoload -Uz add-zsh-hook
+typeset -gi _UNHOOK_ZSH_AUTOSUGGEST_COUNTER=0
+function _unhook_autosuggest() {
+  emulate -L zsh
+  if (( ++_UNHOOK_ZSH_AUTOSUGGEST_COUNTER == 2 )); then
+    add-zsh-hook -D precmd _zsh_autosuggest_start
+    add-zsh-hook -D precmd _unhook_autosuggest
+    unset _UNHOOK_ZSH_AUTOSUGGEST_COUNTER
+  fi
+}
+add-zsh-hook precmd _unhook_autosuggest
+
+# Wrap _expand_alias because putting _expand_alias in ZSH_AUTOSUGGEST_CLEAR_WIDGETS won't work.
+function my-expand-alias() { zle _expand_alias }
+zle -N my-expand-alias
+
 # Automatically run `ls` after every `cd`.
 # function _chpwd_hook_ls() ls
 # autoload -Uz add-zsh-hook
 # add-zsh-hook chpwd _chpwd_hook_ls
 
-function custom_rprompt() {}  # redefine this to show stuff in RPROMPT
-
-bindkey '^H'      backward-kill-word                  # ctrl+bs   delete previous word
-bindkey '^[[3;5~' kill-word                           # ctrl+del  delete next word
-bindkey '^J'      backward-kill-line                  # ctrl+j    delete everything before cursor
-bindkey '^[OA'    up-line-or-beginning-search-local   # ctrl+up   previous command in local history
-bindkey '^[OB'    down-line-or-beginning-search-local # ctrl+down next command in local history
-bindkey '^[[1;5A' up-line-or-beginning-search         # ctrl+up   previous command in global history
-bindkey '^[[1;5B' down-line-or-beginning-search       # ctrl+down next command in global history
+bindkey '^H'      backward-kill-word                  # ctrl+bs    delete previous word
+bindkey '^[[3;5~' kill-word                           # ctrl+del   delete next word
+bindkey '^J'      backward-kill-line                  # ctrl+j     delete everything before cursor
+bindkey '^Z'      undo                                # ctrl+z     undo
+bindkey '^Y'      redo                                # ctrl+y     redo
+bindkey '^[OA'    up-line-or-beginning-search-local   # up         previous command in local history
+bindkey '^[OB'    down-line-or-beginning-search-local # down       next command in local history
+bindkey '^[[1;5A' up-line-or-beginning-search         # ctrl+up    prev command in global history
+bindkey '^[[1;5B' down-line-or-beginning-search       # ctrl+down  next command in global history
+bindkey '^ '      my-expand-alias                     # ctrl+space expand alias
 
 HISTFILE=$HOME/.zsh_history
 HISTSIZE=1000000000
@@ -86,6 +144,7 @@ setopt GLOB_DOTS             # glob matches files starting with dot; `*` becomes
 setopt MULTIOS               # allow multiple redirections for the same fd
 
 setopt NO_BG_NICE            # don't nice background jobs; not useful and doesn't work on WSL
+setopt INTERACTIVE_COMMENTS  # allow comments in command line
 
 # This affects every invocation of `less`.
 #
