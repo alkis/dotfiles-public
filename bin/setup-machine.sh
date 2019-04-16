@@ -166,9 +166,7 @@ install_ohmyzsh_extension theme \
 
 disable_fucking_magic
 
-fix_clock
 fix_shm
-fix_dbus
 fix_gcc
 
 set_preferences
