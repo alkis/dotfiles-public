@@ -1,11 +1,38 @@
-export WSL=$(grep -q Microsoft /proc/version && echo 1 || echo 0)
-export PATH=$HOME/bin:${PATH#$HOME/bin:}
-export EDITOR=nano
+umask 0002
+ulimit -c unlimited
 
-if [[ $WSL == 1 ]]; then
+export WSL=$(grep -q Microsoft /proc/version && echo 1 || echo 0)
+export EDITOR=nano  # my edit
+export PAGER=less
+export GOPATH=$HOME/go
+
+typeset -gaU cdpath fpath mailpath path
+path=($HOME/bin ${path[@]})
+
+# This affects every invocation of `less`.
+#
+#   -i   case-insensitive search unless search string contains uppercase letters
+#   -R   color
+#   -F   exit if there is less than one page of content
+#   -X   keep content on screen after exit
+#   -M   show more info at the bottom prompt line
+#   -x4  tabs are 4 instead of 8
+export LESS=-iRFXMx4
+
+if (( $#commands[(i)lesspipe(|.sh)] )); then
+  export LESSOPEN="| /usr/bin/env $commands[(i)lesspipe(|.sh)] %s 2>&-"
+fi
+
+if (( WSL )); then
   export DISPLAY=:0
   export WIN_TMPDIR=$(wslpath ${$(/mnt/c/Windows/System32/cmd.exe /c "echo %TMP%")%$'\r'})
 fi
 
-umask 0002
-ulimit -c unlimited
+eval $(dircolors -b)
+
+(( WSL )) && local flavor=wsl || local flavor=linux
+typeset -g MACHINE_ID=${(%):-%m}-${flavor}-${HOME:t}
+
+[[ -f $HOME/.zshenv-private ]] && source $HOME/.zshenv-private
+
+setopt NO_GLOBAL_RCS

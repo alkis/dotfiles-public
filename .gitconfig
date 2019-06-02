@@ -24,3 +24,6 @@
 	old = red bold
 	new = green bold
 	whitespace = red reverse
+[submodule]
+	recurse = true
+	fetchJobs = 0
