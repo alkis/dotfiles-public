@@ -133,7 +133,7 @@ install_packages
 install_vscode
 install_fonts
 
-fix_shm
+# fix_shm
 fix_gcc
 
 set_preferences

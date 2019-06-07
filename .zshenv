@@ -25,6 +25,7 @@ fi
 
 if (( WSL )); then
   export DISPLAY=:0
+  export WINDOWS_EDITOR='/mnt/c/Program Files/Microsoft VS Code/Code.exe'
   export WIN_TMPDIR=$(wslpath ${$(/mnt/c/Windows/System32/cmd.exe /c "echo %TMP%")%$'\r'})
 fi
 
