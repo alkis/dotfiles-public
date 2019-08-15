@@ -12,6 +12,7 @@ readonly WSL=$(grep -q Microsoft /proc/version && echo 1 || echo 0)
 function install_packages() {
   local PACKAGES=(
     ascii
+    bzip2
     build-essential
     clang-format
     command-not-found
@@ -20,6 +21,7 @@ function install_packages() {
     g++-8
     gawk
     git
+    gzip
     htop
     jq
     libxml2-utils
@@ -28,11 +30,14 @@ function install_packages() {
     p7zip-full
     p7zip-rar
     perl
+    pigz
     tree
     unrar
+    unzip
     wget
     x11-utils
     xsel
+    xz-utils
     zsh
   )
 
@@ -64,31 +69,57 @@ function install_vscode() {
   rm "$VSCODE_DEB"
 }
 
+function install_ripgrep() {
+  local deb="$(mktemp)"
+  curl -fsSL 'https://github.com/BurntSushi/ripgrep/releases/download/11.0.1/ripgrep_11.0.1_amd64.deb' > "$deb"
+  sudo dpkg -i "$deb"
+  rm "$deb"
+}
+
+function install_fzf() {
+  ~/dotfiles/fzf/install --bin
+}
+
+# Avoid clock snafu when dual-booting Windows and Linux.
+# See https://www.howtogeek.com/323390/how-to-fix-windows-and-linux-showing-different-times-when-dual-booting/.
+function fix_clock() {
+  test $WSL -eq 0 || return 0
+  timedatectl set-local-rtc 1 --adjust-system-clock
+}
+
+# Set the shared memory size limit to 64GB (the default is 32GB).
+function fix_shm() {
+  test $WSL -eq 0 || return 0
+  ! grep -qF '# My custom crap' /etc/fstab || return 0
+  sudo bash -c '
+    echo "# My custom crap" >>/etc/fstab
+    echo "tmpfs /dev/shm tmpfs defaults,rw,nosuid,nodev,size=64g 0 0" >>/etc/fstab
+  '
+}
+
 function win_install_fonts() {
-  local DST_DIR
-  DST_DIR=$(wslpath $(cmd.exe /c "echo %LOCALAPPDATA%\Microsoft\\Windows\\Fonts" | sed 's/\r$//'))
-  mkdir -p "$DST_DIR"
-  for SRC in "$@"; do
-    local FILE=$(basename "$SRC")
-    test -f "$DST_DIR/$FILE" || cp -f "$SRC" "$DST_DIR/"
-    local WIN_PATH
-    WIN_PATH=$(wslpath -w "$DST_DIR/$FILE")
-    # Install fond for the current user. It'll appear in "Font settings".
+  local dst_dir
+  dst_dir=$(wslpath $(cmd.exe /c "echo %LOCALAPPDATA%\Microsoft\\Windows\\Fonts" 2>/dev/null | sed 's/\r$//'))
+  mkdir -p "$dst_dir"
+  local src
+  for src in "$@"; do
+    local file=$(basename "$src")
+    if [[ ! -f "$dst_dir/$file" ]]; then
+      cp -f "$src" "$dst_dir/"
+    fi
+    local win_path
+    win_path=$(wslpath -w "$dst_dir/$file")
+    # Install font for the current user. It'll appear in "Font settings".
     reg.exe add \
       "HKCU\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Fonts" \
-      /v "${FILE%.*} (TrueType)"  /t REG_SZ /d "$WIN_PATH" /f
+      /v "${file%.*} (TrueType)"  /t REG_SZ /d "$win_path" /f 2>/dev/null
   done
-  # Install font for the use with Windows Command Prompt. Requires reboot.
-  reg.exe add \
-    "HKCU\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Console\\TrueTypeFont" \
-    /v 1337 /t REG_SZ /d "MesloLGLDZ NF" /f
-
 }
 
 # Install a decent monospace font.
 function install_fonts() {
   if [[ $WSL == 1 ]]; then
-    win_install_fonts "$HOME"/.local/share/fonts/NerdFonts/*"Windows Compatible.ttf"
+    win_install_fonts "$HOME"/.local/share/fonts/NerdFonts/*.ttf
   fi
 }
 
@@ -111,7 +142,7 @@ function with_dbus() {
 function set_preferences() {
   if [[ $WSL == 0 ]]; then
     # It doesn't work on WSL.
-    gsettings set org.gnome.desktop.interface monospace-font-name 'MesloLGS Nerd Font Mono 11'
+    gsettings set org.gnome.desktop.interface monospace-font-name 'MesloLGS NF 11'
   fi
   if [[ "${DISPLAY+X}" == "" ]]; then
     export DISPLAY=:0
@@ -131,6 +162,8 @@ umask g-w,o-w
 
 install_packages
 install_vscode
+install_ripgrep
+install_fzf
 install_fonts
 
 # fix_shm

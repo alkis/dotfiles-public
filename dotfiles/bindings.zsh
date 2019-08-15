@@ -72,72 +72,65 @@
   # Wrap _expand_alias because putting _expand_alias in ZSH_AUTOSUGGEST_CLEAR_WIDGETS won't work.
   function my-expand-alias() { zle _expand_alias }
 
+  # Shows '...' while completing. No `emulate -L zsh` to pick up dotglob if it's set.
   function expand-or-complete-with-dots() {
-    emulate -L zsh
     local c=$(( ${+terminfo[rmam]} && ${+terminfo[smam]} ))
-    (( c )) && echoti rmam
-    print -Pn "%{%F{red}......%f%}"
-    (( c )) && echoti smam
+    (( c )) && echoti rmam          || true
+    print -Pn "%{%F{red}......%f%}" || true
+    (( c )) && echoti smam          || true
     zle expand-or-complete
     zle redisplay
   }
 
-  function dirhistory-shorten() {
-    cd $1 >/dev/null && print -P '%~' || echo -E $1
-  }
-
-  function dirhistory-print() {
-    emulate -L zsh
-    local -i max_hist=${1:-20}
-
-    typeset -g _DIRHISTORY_BUFFER=$BUFFER
-    typeset -g _DIRHISTORY_CURSOR=$CURSOR
-    BUFFER=
-    zle accept-line
-
-    local clr=${(%):-%k%f%b}
-    (( terminfo[colors] >= 256 )) && local fg=${(%):-%F{244}} || local fg=${(%):-%F{005}}
-    local dir out=$clr
-
-    local -i lim=-1
-    if (( $#dirhistory_past > max_hist + 2 )); then
-      lim=$((max_hist+1))
-      out+=$'\n'"$fg... $(($#dirhistory_past - max_hist - 1)) more ...$clr"
+  # The same as fzf-history-widget from fzf but with extra `awk` to remove duplicate
+  # history entries.
+  function fzf-history-widget-unique() {
+    local selected num
+    setopt localoptions noglobsubst noposixbuiltins pipefail 2> /dev/null
+    selected=( $(fc -rl 1 | awk '!_[substr($0, 8)]++' |
+      FZF_DEFAULT_OPTS="--height ${FZF_TMUX_HEIGHT:-40%} $FZF_DEFAULT_OPTS -n2..,.. --tiebreak=index --bind=ctrl-r:toggle-sort $FZF_CTRL_R_OPTS --query=${(qqq)LBUFFER} +m" $(__fzfcmd)) )
+    local ret=$?
+    if [ -n "$selected" ]; then
+      num=$selected[1]
+      if [ -n "$num" ]; then
+        zle vi-fetch-history -n $num
+      fi
     fi
-    for dir in ${(Oa)${(Oa)dirhistory_past}[2,lim]}; do
-      out+=$'\n'"$fg  $(dirhistory-shorten $dir)$clr"
-    done
-
-    out+=$'\n'"* $(dirhistory-shorten $dirhistory_past[-1])"
-
-    local -i lim=-1
-    (( $#dirhistory_future > max_hist + 1 )) && lim=max_hist
-    for dir in ${${(Oa)dirhistory_future}[1,lim]}; do
-      out+=$'\n'"$fg  $(dirhistory-shorten $dir)$clr"
-    done
-    if (( lim >= 0 )); then
-      out+=$'\n'"$fg... $(($#dirhistory_future - max_hist)) more ...$clr"
-    fi
-    echo -nE $out
+    zle .reset-prompt
+    return $ret
   }
 
-  function dirhistory-restore-buffer() {
+  function redraw-prompt() {
     emulate -L zsh
-    BUFFER=$_DIRHISTORY_BUFFER
-    CURSOR=$_DIRHISTORY_CURSOR
-    typeset -g _DIRHISTORY_BUFFER=
-    typeset -g _DIRHISTORY_CURSOR=1
+    zle || return
+    local f
+    for f in precmd ${(@)precmd_functions:#*p9k*}; do
+      (( $+functions[$f] )) && $f
+    done
+    powerlevel9k_refresh_prompt_inplace
+    zle .reset-prompt && zle -R
   }
 
-  local which
-  for which in up back forward; do
-    eval "function dirhistory-$which() {
-      emulate -L zsh
-      dirhistory_$which
-      powerlevel9k_refresh_prompt_inplace
-      zle .reset-prompt && zle -R
-    }"
-  done
+  # Override the stock fzf-redraw-prompt with a better implementation.
+  function fzf-redraw-prompt() { redraw-prompt }
+
+  function cd-rotate() {
+    emulate -L zsh
+    while (( $#dirstack )) && ! pushd -q $1 &>/dev/null; do
+      popd -q $1
+    done
+    if (( $#dirstack )); then
+      local f
+      for f in chpwd $chpwd_functions; do
+        (( $+functions[$f] )) && $f
+      done
+      redraw-prompt
+    fi
+  }
+
+  function cd-back() { cd-rotate +1 }
+  function cd-forward() { cd-rotate -0 }
+  function cd-up() { cd .. && redraw-prompt }
 
   autoload -U edit-command-line up-line-or-beginning-search down-line-or-beginning-search
 
@@ -148,11 +141,15 @@
   zle -N expand-or-complete-with-dots
   zle -N up-line-or-beginning-search-local
   zle -N down-line-or-beginning-search-local
-  zle -N dirhistory-restore-buffer
-  zle -N dirhistory-print
-  zle -N dirhistory-up
-  zle -N dirhistory-back
-  zle -N dirhistory-forward
+  zle -N cd-back
+  zle -N cd-forward
+  zle -N cd-up
+  zle -N fzf-history-widget-unique
+
+  fzf_default_completion=expand-or-complete-with-dots
+  run-tracked -b  source ~/dotfiles/fzf/shell/completion.zsh
+  # Deny fzf-redraw-prompt function. We have our own.
+  run-tracked -bf source ~/dotfiles/fzf/shell/key-bindings.zsh
 
   zmodload zsh/terminfo
 
@@ -164,8 +161,6 @@
     add-zle-hook-widget line-init enable-term-application-mode
     add-zle-hook-widget line-finish disable-term-application-mode
   fi
-
-  add-zle-hook-widget line-init dirhistory-restore-buffer
 
   # Note: You can specify several codes separated by space. All of them will be bound.
   #
@@ -212,8 +207,6 @@
     CtrlBackspace backward-kill-word                   # delete previous word
     CtrlDel       kill-word                            # delete next word
     Ctrl-J        backward-kill-line                   # delete everything before cursor
-    Ctrl-Z        undo                                 # undo (suspend is on Ctrl-B)
-    Alt-Z         redo                                 # redo
     Left          backward-char                        # move cursor one char backward
     Right         forward-char                         # move cursor one char forward
     Up            up-line-or-beginning-search-local    # prev command in local history
@@ -223,11 +216,13 @@
     Ctrl-' '      my-expand-alias                      # expand alias
     ShiftTab      reverse-menu-complete                # previous in completion menu
     Ctrl-E        edit-command-line                    # edit command line in $EDITOR
-    Tab           expand-or-complete-with-dots         # show '...' while completing
-    AltLeft       dirhistory-back                      # cd into the previous directory
-    AltRight      dirhistory-forward                   # cd into the next directory
-    AltUp         dirhistory-up                        # cd ..
-    AltDown       dirhistory-print                     # print directory history
+    AltLeft       cd-back                              # cd into the previous directory
+    AltRight      cd-forward                           # cd into the next directory
+    AltUp         cd-up                                # cd ..
+    AltDown       fzf-cd-widget                        # fzf cd
+    Tab           fzf-completion                       # fzf completion
+    Ctrl-R        fzf-history-widget-unique            # fzf history
+    Ctrl-T        fzf-file-widget                      # fzf file picker
   )
 
   local key widget
@@ -249,8 +244,6 @@
     local c=''
     for c in $code[@]; do bindkey $c $widget; done
   done
-
-  stty susp '^B'  # Ctrl-B instead of Ctrl-Z to suspend (Ctrl-Z is undo)
 
   typeset -g ZSH_AUTOSUGGEST_EXECUTE_WIDGETS=()
   typeset -g ZSH_AUTOSUGGEST_ACCEPT_WIDGETS=(
@@ -288,18 +281,5 @@
     vi-find-next-char-skip
     forward-char               # my addition
     vi-forward-char            # my addition
-  )
-
-  typeset -g ZSH_AUTOSUGGEST_IGNORE_WIDGETS=(
-    orig-\*
-    beep
-    run-help
-    set-local-history
-    which-command
-    yank
-    yank-pop
-    zle-isearch-update
-    zle-keymap-select
-    zle-line-finish      # my addition
   )
 }

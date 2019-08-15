@@ -2,6 +2,7 @@ alias diff='diff --color=auto'
 alias grep='grep --color=auto --exclude-dir={.bzr,CVS,.git,.hg,.svn}'
 alias clang-format='clang-format -style=file'
 alias ls='ls --group-directories-first --color=auto'
+alias tree='tree -aC -I .git --dirsfirst'
 alias gedit='gedit &>/dev/null'
 alias d2u='dos2unix'
 alias u2d='unix2dos'
@@ -20,3 +21,49 @@ if (( WSL )); then
   hash -d h=$(wslpath $(win_env USERPROFILE))
 fi
 
+function sync-dotfiles() {
+  emulate -L zsh
+  setopt err_return no_unset xtrace
+
+  function _sync-dotfiles-public() { dotfiles-public "$@" }
+  function _sync-dotfiles-private() { dotfiles-private "$@" }
+
+  function _sync-dotfiles-repo() {
+    local git=_sync-dotfiles-$1
+    local -i dirty
+    local s && s="$($git status --porcelain --untracked-files=no)"
+    [[ -z $s ]] || {
+      dirty=1
+      $git stash
+    }
+
+    $git pull --rebase --no-recurse-submodules
+
+    ! $git remote get-url upstream &>/dev/null || {
+      $git fetch upstream
+      $git merge upstream/master
+    }
+
+    $git push
+    (( !dirty )) || $git stash pop
+
+    $git pull --recurse-submodules
+    $git submodule update --init
+  }
+
+  {
+    pushd ~
+
+    _sync-dotfiles-repo public
+
+    [[ ! -f $HISTFILE ]] || {
+      dotfiles-private add -f $HISTFILE
+      local s && s="$(dotfiles-private status --porcelain $HISTFILE)"
+      [[ -z $s ]] || dotfiles-private commit -m 'fresh history' $HISTFILE
+    }
+    _sync-dotfiles-repo private
+  } always {
+    popd
+    unfunction _sync-dotfiles-{public,private,repo}
+  }
+}
