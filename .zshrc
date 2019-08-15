@@ -96,3 +96,6 @@ setopt EXTENDED_HISTORY        # write timestamps to history
 
 # setopt COMPLETE_IN_WORD      # not sure what it does
 # setopt NO_FLOW_CONTROL       # not sure what it does
+
+# To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
+[[ -f ~/.p10k.zsh ]] && source ~/.p10k.zsh
