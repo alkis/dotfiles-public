@@ -5,6 +5,36 @@
 
 set -xueE -o pipefail
 
+# These are obtained by running 'dconf dump /org/gnome/gedit/preferences/'.
+readonly GEDIT_PREFERENCES="[editor]
+highlight-current-line=true
+display-right-margin=true
+display-overview-map=false
+bracket-matching=true
+tabs-size=uint32 2
+display-line-numbers=true
+insert-spaces=true
+right-margin-position=uint32 100
+background-pattern='none'
+wrap-last-split-mode='word'
+auto-indent=true
+
+[ui]
+show-tabs-mode='auto'
+side-panel-visible=true"
+
+# These are obtained by running 'dconf dump /org/gnome/meld/'.
+readonly MELD_PREFERENCES="[/]
+indent-width=2
+highlight-current-line=true
+folder-columns=[('size', true), ('modification time', true), ('permissions', true)]
+show-line-numbers=true
+wrap-mode='none'
+vc-commit-margin=100
+insert-spaces-instead-of-tabs=false
+highlight-syntax=true
+draw-spaces=['space', 'tab', 'nbsp', 'leading', 'text', 'trailing']"
+
 # '1' if running under Windows Subsystem for Linux, '0' otherwise.
 readonly WSL=$(grep -q Microsoft /proc/version && echo 1 || echo 0)
 
@@ -17,9 +47,11 @@ function install_packages() {
     clang-format
     command-not-found
     curl
+    dconf-cli
     dos2unix
     g++-8
     gawk
+    gedit
     git
     gzip
     htop
@@ -46,7 +78,7 @@ function install_packages() {
   else
     PACKAGES+=(gnome-tweak-tool iotop)
   fi
-  
+
   sudo apt update
   sudo apt upgrade -y
   sudo apt install -y "${PACKAGES[@]}"
@@ -151,6 +183,8 @@ function set_preferences() {
     # No X server at $DISPLAY.
     return
   fi
+  with_dbus dconf load '/org/gnome/gedit/preferences/' <<<"$GEDIT_PREFERENCES"
+  with_dbus dconf load '/org/gnome/meld/' <<<"$MELD_PREFERENCES"
 }
 
 if [[ "$(id -u)" == 0 ]]; then
@@ -166,7 +200,9 @@ install_ripgrep
 install_fzf
 install_fonts
 
-# fix_shm
+fix_clock
+fix_shm
+fix_dbus
 fix_gcc
 
 set_preferences
