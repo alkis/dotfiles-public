@@ -1,8 +1,12 @@
 umask 0002
 ulimit -c unlimited
 
-export WSL=$(grep -q Microsoft /proc/version && echo 1 || echo 0)
-export EDITOR=nano  # my edit
+if [[ -r /proc/version && "$(</proc/version)" == *Microsoft* ]]; then
+  export WSL=1
+else
+  export WSL=0
+fi
+export EDITOR=$HOME/bin/redit
 export PAGER=less
 export GOPATH=$HOME/go
 export DOTNET_CLI_TELEMETRY_OPTOUT=1
@@ -26,15 +30,16 @@ fi
 
 if (( WSL )); then
   export DISPLAY=:0
-  export WINDOWS_EDITOR='/mnt/c/Program Files/Microsoft VS Code/Code.exe'
-  export WIN_TMPDIR=$(wslpath ${$(/mnt/c/Windows/System32/cmd.exe /c "echo %TMP%")%$'\r'})
+  export WINDOWS_EDITOR='/mnt/c/Program Files/Notepad++/notepad++.exe'
+  export WIN_TMPDIR=$(wslpath ${$(cd /mnt/c && /mnt/c/Windows/System32/cmd.exe /c "echo %TMP%")%$'\r'})
 fi
 
-eval $(dircolors -b)
+if (( $+commands[dircolors] )); then
+  eval "$(command dircolors -b)"
+fi
 
-(( WSL )) && local flavor=wsl || local flavor=linux
-typeset -g MACHINE_ID=${(%):-%m}-${flavor}-${HOME:t}
-
-[[ -f $HOME/.zshenv-private ]] && source $HOME/.zshenv-private
+typeset -g MACHINE_ID=${(%):-%m}-${${${WSL:#0}:+wsl}:-linux}-${HOME:t}
 
 setopt NO_GLOBAL_RCS
+
+[[ -r ~/.zshenv-private ]] && source $HOME/.zshenv-private || true
